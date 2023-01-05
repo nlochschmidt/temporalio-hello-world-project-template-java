@@ -1,55 +1,62 @@
 // @@@SNIPSTART hello-world-project-template-java-workflow-test
 package helloworldapp;
 
+import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowOptions;
-import io.temporal.testing.TestWorkflowRule;
-import org.junit.Rule;
-import org.junit.Test;
+import io.temporal.testing.TestWorkflowEnvironment;
+import io.temporal.testing.TestWorkflowExtension;
+import io.temporal.worker.Worker;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 public class HelloWorldWorkflowTest {
 
-    @Rule
-    public TestWorkflowRule testWorkflowRule =
-            TestWorkflowRule.newBuilder()
+    @RegisterExtension
+    public static final TestWorkflowExtension workflowExtension =
+            TestWorkflowExtension.newBuilder()
                     .setWorkflowTypes(HelloWorldWorkflowImpl.class)
                     .setDoNotStart(true)
                     .build();
 
     @Test
-    public void testGetGreeting() {
-        testWorkflowRule.getWorker().registerActivitiesImplementations(new FormatImpl());
-        testWorkflowRule.getTestEnvironment().start();
+    public void testGetGreeting(
+            Worker worker,
+            TestWorkflowEnvironment environment,
+            WorkflowClient client
+    ) {
+        worker.registerActivitiesImplementations(new FormatImpl());
+        environment.start();
 
         HelloWorldWorkflow workflow =
-                testWorkflowRule
-                        .getWorkflowClient()
-                        .newWorkflowStub(
-                                HelloWorldWorkflow.class,
-                                WorkflowOptions.newBuilder().setTaskQueue(testWorkflowRule.getTaskQueue()).build());
+                client.newWorkflowStub(
+                        HelloWorldWorkflow.class,
+                        WorkflowOptions.newBuilder().setTaskQueue(worker.getTaskQueue()).build());
         String greeting = workflow.getGreeting("John");
         assertEquals("Hello John!", greeting);
-        testWorkflowRule.getTestEnvironment().shutdown();
+        environment.shutdown();
     }
 
     @Test
-    public void testMockedGetGreeting() {
+    public void testMockedGetGreeting(
+            Worker worker,
+            TestWorkflowEnvironment environment,
+            WorkflowClient client
+    ) {
         Format formatActivities = mock(Format.class, withSettings().withoutAnnotations());
         when(formatActivities.composeGreeting(anyString())).thenReturn("Hello World!");
-        testWorkflowRule.getWorker().registerActivitiesImplementations(formatActivities);
-        testWorkflowRule.getTestEnvironment().start();
+        worker.registerActivitiesImplementations(formatActivities);
+        environment.start();
 
         HelloWorldWorkflow workflow =
-                testWorkflowRule
-                        .getWorkflowClient()
-                        .newWorkflowStub(
-                                HelloWorldWorkflow.class,
-                                WorkflowOptions.newBuilder().setTaskQueue(testWorkflowRule.getTaskQueue()).build());
+                client.newWorkflowStub(
+                        HelloWorldWorkflow.class,
+                        WorkflowOptions.newBuilder().setTaskQueue(worker.getTaskQueue()).build());
         String greeting = workflow.getGreeting("World");
         assertEquals("Hello World!", greeting);
-        testWorkflowRule.getTestEnvironment().shutdown();
+        environment.shutdown();
     }
 }
 // @@@SNIPEND
